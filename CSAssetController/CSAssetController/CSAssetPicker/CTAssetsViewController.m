@@ -26,7 +26,6 @@
  */
 
 #import "CTAssetsPickerCommon.h"
-#import "CTAssetsPickerController.h"
 #import "CTAssetsViewController.h"
 #import "CTAssetsViewCell.h"
 #import "CTAssetsSupplementaryView.h"
@@ -38,28 +37,15 @@
 NSString * const CTAssetsViewCellIdentifier = @"CTAssetsViewCellIdentifier";
 NSString * const CTAssetsSupplementaryViewIdentifier = @"CTAssetsSupplementaryViewIdentifier";
 
-@interface CTAssetsPickerController ()
-
-- (void)finishPickingAssets:(id)sender;
-
-- (NSString *)toolbarTitle;
-- (UIView *)noAssetsView;
-
-@end
-
-
-
 @interface CTAssetsViewController () <CSAssetGroupPopoverViewControllerDelegate>
-
-@property (nonatomic, weak) CTAssetsPickerController *picker;
 @property (nonatomic, strong) NSMutableArray *assets;
 @property (nonatomic, strong) NSMutableArray *assetGroups;
+@property (nonatomic, strong) NSMutableArray *selectedAssets;
 @property (nonatomic, strong) UIButton* btnTitle;
 
 @end
 
 @implementation CTAssetsViewController
-
 
 - (id)init
 {
@@ -80,7 +66,6 @@ NSString * const CTAssetsSupplementaryViewIdentifier = @"CTAssetsSupplementaryVi
         
         self.preferredContentSize = CTAssetPickerPopoverContentSize;
     }
-    
     [self addNotificationObserver];
     [self addGestureRecognizer];
     
@@ -99,6 +84,46 @@ NSString * const CTAssetsSupplementaryViewIdentifier = @"CTAssetsSupplementaryVi
     UITapGestureRecognizer* titleTapGesture = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(onTitleTapped)];
     [self.btnTitle addGestureRecognizer:titleTapGesture];
     self.navigationItem.titleView = self.btnTitle;
+    
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(done)];
+    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemCancel target:self action:@selector(cancel)];
+}
+
+- (void) cancel {
+    if ([self.delegate respondsToSelector:@selector(assetsControllerDidCancel:)]) {
+        [self.delegate assetsControllerDidCancel:self];
+    }
+    [self dismissViewControllerAnimated:YES completion:nil];
+}
+//
+//// Check here: http://stackoverflow.com/questions/2798653/is-it-possible-to-determine-whether-viewcontroller-is-presented-as-modal
+//-(BOOL)isModal {
+//    
+//    BOOL isModal = ((self.parentViewController && self.parentViewController.modalViewController == self) ||
+//                    //or if I have a navigation controller, check if its parent modal view controller is self navigation controller
+//                    ( self.navigationController && self.navigationController.parentViewController && self.navigationController.parentViewController.modalViewController == self.navigationController) ||
+//                    //or if the parent of my UITabBarController is also a UITabBarController class, then there is no way to do that, except by using a modal presentation
+//                    [[[self tabBarController] parentViewController] isKindOfClass:[UITabBarController class]]);
+//    
+//    //iOS 5+
+//    if (!isModal && [self respondsToSelector:@selector(presentingViewController)]) {
+//        
+//        isModal = ((self.presentingViewController && self.presentingViewController.modalViewController == self) ||
+//                   //or if I have a navigation controller, check if its parent modal view controller is self navigation controller
+//                   (self.navigationController && self.navigationController.presentingViewController && self.navigationController.presentingViewController.modalViewController == self.navigationController) ||
+//                   //or if the parent of my UITabBarController is also a UITabBarController class, then there is no way to do that, except by using a modal presentation
+//                   [[[self tabBarController] presentingViewController] isKindOfClass:[UITabBarController class]]);
+//        
+//    }
+//    
+//    return isModal;        
+//    
+//}
+
+- (void) done {
+    if ([self.delegate respondsToSelector:@selector(assetController:didSelect:)]) {
+        [self.delegate assetController:self didSelect:self.selectedAssets];
+    }
 }
 
 - (void)setTitle:(NSString *)title {
@@ -123,12 +148,9 @@ NSString * const CTAssetsSupplementaryViewIdentifier = @"CTAssetsSupplementaryVi
     popover.selectedGroup = self.assetsGroup;
     self.providesPresentationContextTransitionStyle = YES;
     self.definesPresentationContext = YES;
-//    self.modalTransitionStyle = UIModalPresentationCurrentContext;
     [popover setModalPresentationStyle:UIModalPresentationOverFullScreen];
     popover.delegate = self;
-    [self presentViewController:popover animated:NO completion:^{
-        
-    }];
+    [self presentViewController:popover animated:NO completion:nil];
 }
 
 - (void)assetGroupPopover:(CSAssetGroupPopoverTableViewController *)controller didSelectAsset:(ALAssetsGroup *)group {
@@ -136,77 +158,22 @@ NSString * const CTAssetsSupplementaryViewIdentifier = @"CTAssetsSupplementaryVi
     [self setupAssets];
 }
 
-- (void)setupGroup
-{
+- (void)setupGroup {
     NSMutableArray* groups = [[NSMutableArray alloc] init];
-    
-    ALAssetsFilter *assetsFilter = [ALAssetsFilter allPhotos];//self.picker.assetsFilter;
-    
-    ALAssetsLibraryGroupsEnumerationResultsBlock resultsBlock = ^(ALAssetsGroup *group, BOOL *stop)
-    {
-        if (group)
-        {
-            int val = [[group valueForProperty:ALAssetsGroupPropertyType] integerValue];
-            NSString *title = [group valueForProperty:ALAssetsGroupPropertyName];
-            if ([group isEditable]) {
-                NSLog(@"Group title: %@ - Editable", title);
-            } else {
-                NSLog(@"Group title: %@ - Cannot edit", title);
-            }
-            
-            switch (val) {
-                case ALAssetsGroupSavedPhotos:
-                    NSLog(@"ALAssetsGroupSavedPhotos");
-                    break;
-                case ALAssetsGroupAlbum:
-                    NSLog(@"ALAssetsGroupAlbum");
-                    break;
-                case ALAssetsGroupAll:
-                    NSLog(@"ALAssetsGroupAll");
-                    break;
-                case ALAssetsGroupEvent:
-                    NSLog(@"ALAssetsGroupEvent");
-                    break;
-                case ALAssetsGroupFaces:
-                    NSLog(@"ALAssetsGroupFaces");
-                    break;
-                case ALAssetsGroupLibrary:
-                    NSLog(@"ALAssetsGroupLibrary");
-                    break;
-                case ALAssetsGroupPhotoStream:
-                    NSLog(@"ALAssetsGroupPhotoStream");
-                    break;
-
-            }
+    ALAssetsFilter *assetsFilter = [ALAssetsFilter allPhotos];
+    ALAssetsLibraryGroupsEnumerationResultsBlock resultsBlock = ^(ALAssetsGroup *group, BOOL *stop) {
+        if (group) {
             [group setAssetsFilter:assetsFilter];
-            
-            BOOL shouldShowGroup;
-            
-//            if ([self.picker.delegate respondsToSelector:@selector(assetsPickerController:shouldShowAssetsGroup:)])
-//                shouldShowGroup = [self.picker.delegate assetsPickerController:self.picker shouldShowAssetsGroup:group];
-//            else
-                shouldShowGroup = YES;
-            
-            if (shouldShowGroup)
-            {
+            int numberOfAsset = [group numberOfAssets];
+            if (numberOfAsset > 0) {
                 [groups addObject:group];
-                
                 if (([[group valueForProperty:ALAssetsGroupPropertyType] integerValue] == ALAssetsGroupSavedPhotos)) {
                     self.assetsGroup = group;
+                    [self setupAssets];
                 }
-//                if ([self.picker.delegate respondsToSelector:@selector(assetsPickerController:isDefaultAssetsGroup:)])
-//                {
-//                    if ([self.picker.delegate assetsPickerController:self.picker isDefaultAssetsGroup:group])
-//                        self.defaultGroup = group;
-//                }
             }
-        }
-        else
-        {
-            // Lay toan bo album o day roi
-//            [self reloadData];
+        } else {
             self.assetGroups = groups;
-            [self setupAssets];
         }
     };
     
@@ -214,17 +181,12 @@ NSString * const CTAssetsSupplementaryViewIdentifier = @"CTAssetsSupplementaryVi
     {
 //        [self showNotAllowed];
     };
-    
     // Enumerate Camera roll first
     [[CTAssetsViewController defaultAssetsLibrary] enumerateGroupsWithTypes:ALAssetsGroupSavedPhotos
                                              usingBlock:resultsBlock
                                            failureBlock:failureBlock];
-    
     // Then all other groups
-    NSUInteger type =
-    ALAssetsGroupLibrary | ALAssetsGroupAlbum | ALAssetsGroupEvent |
-    ALAssetsGroupFaces | ALAssetsGroupPhotoStream;
-    
+    NSUInteger type = ALAssetsGroupLibrary | ALAssetsGroupAlbum | ALAssetsGroupEvent | ALAssetsGroupFaces | ALAssetsGroupPhotoStream;
     [[CTAssetsViewController defaultAssetsLibrary] enumerateGroupsWithTypes:type
                                              usingBlock:resultsBlock
                                            failureBlock:failureBlock];
@@ -250,20 +212,6 @@ NSString * const CTAssetsSupplementaryViewIdentifier = @"CTAssetsSupplementaryVi
 //    [self setupAssets];
 }
 
-- (void)dealloc
-{
-    [self removeNotificationObserver];
-}
-
-
-#pragma mark - Accessors
-
-- (CTAssetsPickerController *)picker
-{
-    return (CTAssetsPickerController *)self.navigationController.parentViewController;
-}
-
-
 #pragma mark - Rotation
 
 - (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration
@@ -282,53 +230,37 @@ NSString * const CTAssetsSupplementaryViewIdentifier = @"CTAssetsSupplementaryVi
 
 - (void)setupButtons
 {
-    self.navigationItem.rightBarButtonItem =
-    [[UIBarButtonItem alloc] initWithTitle:CTAssetsPickerControllerLocalizedString(@"Done")
-                                     style:UIBarButtonItemStyleDone
-                                    target:self.picker
-                                    action:@selector(finishPickingAssets:)];
-    
-    if (self.picker.alwaysEnableDoneButton)
-        self.navigationItem.rightBarButtonItem.enabled = YES;
-    else
-        self.navigationItem.rightBarButtonItem.enabled = (self.picker.selectedAssets.count > 0);
+//    self.navigationItem.rightBarButtonItem =
+//    [[UIBarButtonItem alloc] initWithTitle:CTAssetsPickerControllerLocalizedString(@"Done")
+//                                     style:UIBarButtonItemStyleDone
+//                                    target:self.picker
+//                                    action:@selector(finishPickingAssets:)];
+//    
+//    if (self.picker.alwaysEnableDoneButton)
+//        self.navigationItem.rightBarButtonItem.enabled = YES;
+//    else
+//        self.navigationItem.rightBarButtonItem.enabled = (self.picker.selectedAssets.count > 0);
 }
 
 - (void)setupToolbar
 {
-    self.toolbarItems = self.picker.toolbarItems;
+//    self.toolbarItems = self.picker.toolbarItems;
 }
 
-- (void)setupAssets
-{
+- (void)setupAssets {
     self.title = [self.assetsGroup valueForProperty:ALAssetsGroupPropertyName];
-    
     if (!self.assets)
         self.assets = [[NSMutableArray alloc] init];
     else
         [self.assets removeAllObjects];
-//        return;
-    
-    ALAssetsGroupEnumerationResultsBlock resultsBlock = ^(ALAsset *asset, NSUInteger index, BOOL *stop)
-    {
-        if (asset)
-        {
-            BOOL shouldShowAsset;
-            
-            if ([self.picker.delegate respondsToSelector:@selector(assetsPickerController:shouldShowAsset:)])
-                shouldShowAsset = [self.picker.delegate assetsPickerController:self.picker shouldShowAsset:asset];
-            else
-                shouldShowAsset = YES;
-            
-            if (shouldShowAsset)
-                [self.assets addObject:asset];
+    ALAssetsGroupEnumerationResultsBlock resultsBlock = ^(ALAsset *asset, NSUInteger index, BOOL *stop) {
+        if (asset) {
+            [self.assets addObject:asset];
         }
-        else
-        {
+        else {
             [self reloadData];
         }
     };
-    
     [self.assetsGroup enumerateAssetsUsingBlock:resultsBlock];
 }
 
@@ -357,45 +289,6 @@ NSString * const CTAssetsSupplementaryViewIdentifier = @"CTAssetsSupplementaryVi
     
     return layout;
 }
-
-
-#pragma mark - Notifications
-
-- (void)addNotificationObserver
-{
-    NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
-    
-    [center addObserver:self
-               selector:@selector(assetsLibraryChanged:)
-                   name:ALAssetsLibraryChangedNotification
-                 object:nil];
-    
-    [center addObserver:self
-               selector:@selector(selectedAssetsChanged:)
-                   name:CTAssetsPickerSelectedAssetsChangedNotification
-                 object:nil];
-    
-    [center addObserver:self
-               selector:@selector(didSelectAsset:)
-                   name:CTAssetsPickerDidSelectAssetNotification
-                 object:nil];
-    
-    [center addObserver:self
-               selector:@selector(didDeselectAsset:)
-                   name:CTAssetsPickerDidDeselectAssetNotification
-                 object:nil];
-    
-}
-
-- (void)removeNotificationObserver
-{
-    NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
-    [center removeObserver:self name:ALAssetsLibraryChangedNotification object:nil];
-    [center removeObserver:self name:CTAssetsPickerSelectedAssetsChangedNotification object:nil];
-    [center removeObserver:self name:CTAssetsPickerDidSelectAssetNotification object:nil];
-    [center removeObserver:self name:CTAssetsPickerDidDeselectAssetNotification object:nil];
-}
-
 
 #pragma mark - Assets Library Changed
 
@@ -434,7 +327,7 @@ NSString * const CTAssetsSupplementaryViewIdentifier = @"CTAssetsSupplementaryVi
 {
     NSArray *selectedAssets = (NSArray *)notification.object;
     
-    [[self.toolbarItems objectAtIndex:1] setTitle:[self.picker toolbarTitle]];
+//    [[self.toolbarItems objectAtIndex:1] setTitle:[self.picker toolbarTitle]];
     
     [self.navigationController setToolbarHidden:(selectedAssets.count == 0) animated:YES];
     
@@ -519,7 +412,7 @@ NSString * const CTAssetsSupplementaryViewIdentifier = @"CTAssetsSupplementaryVi
 
 - (void)showNoAssets
 {
-    self.collectionView.backgroundView = [self.picker noAssetsView];
+//    self.collectionView.backgroundView = [self.picker noAssetsView];
     [self setAccessibilityFocus];
 }
 
@@ -543,30 +436,12 @@ NSString * const CTAssetsSupplementaryViewIdentifier = @"CTAssetsSupplementaryVi
     return self.assets.count;
 }
 
-- (UICollectionViewCell *)collectionView:(UICollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)indexPath
-{
+- (UICollectionViewCell *)collectionView:(UICollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)indexPath {
     CTAssetsViewCell *cell =
     [collectionView dequeueReusableCellWithReuseIdentifier:CTAssetsViewCellIdentifier
                                               forIndexPath:indexPath];
-    
     ALAsset *asset = [self.assets objectAtIndex:indexPath.row];
-    
-    if ([self.picker.delegate respondsToSelector:@selector(assetsPickerController:shouldEnableAsset:)])
-        cell.enabled = [self.picker.delegate assetsPickerController:self.picker shouldEnableAsset:asset];
-    else
-        cell.enabled = YES;
-    
-    // XXX
-    // Setting `selected` property blocks further deselection.
-    // Have to call selectItemAtIndexPath too. ( ref: http://stackoverflow.com/a/17812116/1648333 )
-    if ([self.picker.selectedAssets containsObject:asset])
-    {
-        cell.selected = YES;
-        [collectionView selectItemAtIndexPath:indexPath animated:NO scrollPosition:UICollectionViewScrollPositionNone];
-    }
-    
     [cell bind:asset];
-    
     return cell;
 }
 
@@ -588,74 +463,31 @@ NSString * const CTAssetsSupplementaryViewIdentifier = @"CTAssetsSupplementaryVi
 
 #pragma mark - Collection View Delegate
 
-- (BOOL)collectionView:(UICollectionView *)collectionView shouldSelectItemAtIndexPath:(NSIndexPath *)indexPath
-{
+- (void)collectionView:(UICollectionView *)collectionView didDeselectItemAtIndexPath:(NSIndexPath *)indexPath {
     ALAsset *asset = [self.assets objectAtIndex:indexPath.row];
-    
-    CTAssetsViewCell *cell = (CTAssetsViewCell *)[collectionView cellForItemAtIndexPath:indexPath];
-    
-    if (!cell.isEnabled)
-        return NO;
-    else if ([self.picker.delegate respondsToSelector:@selector(assetsPickerController:shouldSelectAsset:)])
-        return [self.picker.delegate assetsPickerController:self.picker shouldSelectAsset:asset];
-    else
-        return YES;
+    [self.selectedAssets removeObject:asset];
+}
+- (void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath {
+    ALAsset *asset = [self.assets objectAtIndex:indexPath.row];
+    [self.selectedAssets addObject:asset];
 }
 
-- (void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath
-{
-    ALAsset *asset = [self.assets objectAtIndex:indexPath.row];
-    
-    [self.picker selectAsset:asset];
-    
-    if ([self.picker.delegate respondsToSelector:@selector(assetsPickerController:didSelectAsset:)])
-        [self.picker.delegate assetsPickerController:self.picker didSelectAsset:asset];
+- (void)dealloc {
+    [self removeNotificationObserver];
 }
 
-- (BOOL)collectionView:(UICollectionView *)collectionView shouldDeselectItemAtIndexPath:(NSIndexPath *)indexPath
-{
-    ALAsset *asset = [self.assets objectAtIndex:indexPath.row];
+- (void)addNotificationObserver {
+    NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
+    [center addObserver:self
+               selector:@selector(assetsLibraryChanged:)
+                   name:ALAssetsLibraryChangedNotification
+                 object:nil];
     
-    if ([self.picker.delegate respondsToSelector:@selector(assetsPickerController:shouldDeselectAsset:)])
-        return [self.picker.delegate assetsPickerController:self.picker shouldDeselectAsset:asset];
-    else
-        return YES;
 }
 
-- (void)collectionView:(UICollectionView *)collectionView didDeselectItemAtIndexPath:(NSIndexPath *)indexPath
-{
-    ALAsset *asset = [self.assets objectAtIndex:indexPath.row];
-    
-    [self.picker deselectAsset:asset];
-    
-    if ([self.picker.delegate respondsToSelector:@selector(assetsPickerController:didDeselectAsset:)])
-        [self.picker.delegate assetsPickerController:self.picker didDeselectAsset:asset];
-}
-
-- (BOOL)collectionView:(UICollectionView *)collectionView shouldHighlightItemAtIndexPath:(NSIndexPath *)indexPath
-{
-    ALAsset *asset = [self.assets objectAtIndex:indexPath.row];
-    
-    if ([self.picker.delegate respondsToSelector:@selector(assetsPickerController:shouldHighlightAsset:)])
-        return [self.picker.delegate assetsPickerController:self.picker shouldHighlightAsset:asset];
-    else
-        return YES;
-}
-
-- (void)collectionView:(UICollectionView *)collectionView didHighlightItemAtIndexPath:(NSIndexPath *)indexPath
-{
-    ALAsset *asset = [self.assets objectAtIndex:indexPath.row];
-    
-    if ([self.picker.delegate respondsToSelector:@selector(assetsPickerController:didHighlightAsset:)])
-        [self.picker.delegate assetsPickerController:self.picker didHighlightAsset:asset];
-}
-
-- (void)collectionView:(UICollectionView *)collectionView didUnhighlightItemAtIndexPath:(NSIndexPath *)indexPath
-{
-    ALAsset *asset = [self.assets objectAtIndex:indexPath.row];
-    
-    if ([self.picker.delegate respondsToSelector:@selector(assetsPickerController:didUnhighlightAsset:)])
-        [self.picker.delegate assetsPickerController:self.picker didUnhighlightAsset:asset];
+- (void)removeNotificationObserver {
+    NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
+    [center removeObserver:self name:ALAssetsLibraryChangedNotification object:nil];
 }
 
 

@@ -28,10 +28,21 @@
 #import <UIKit/UIKit.h>
 #import <AssetsLibrary/AssetsLibrary.h>
 
+@protocol CSAssetsViewControllerDelegate;
+
 @interface CTAssetsViewController : UICollectionViewController
 
+@property (nonatomic, weak) id <CSAssetsViewControllerDelegate> delegate;
 @property (nonatomic, strong) ALAssetsGroup *assetsGroup;
 
 - (void)setupGroup;
+
+@end
+
+@protocol CSAssetsViewControllerDelegate <NSObject>
+
+- (void) assetController:(CTAssetsViewController*)controller didSelect:(NSArray*)assetArray;
+
+- (void) assetsControllerDidCancel:(CTAssetsViewController *)controller;
 
 @end

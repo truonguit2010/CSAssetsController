@@ -44,9 +44,6 @@
 @end
 
 
-
-
-
 @implementation CTAssetsViewCell
 
 static UIFont *titleFont;

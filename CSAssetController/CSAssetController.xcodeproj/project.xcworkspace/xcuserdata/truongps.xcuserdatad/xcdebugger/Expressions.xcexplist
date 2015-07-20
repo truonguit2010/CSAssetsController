@@ -20,6 +20,9 @@
          contextName = "-[CTAssetsViewController setupAssets]:CTAssetsViewController.m">
          <PersistentStrings>
             <PersistentString
+               value = "self.assetsGroup">
+            </PersistentString>
+            <PersistentString
                value = "self.title">
             </PersistentString>
          </PersistentStrings>

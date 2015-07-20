@@ -38,10 +38,10 @@
         [self.navigationController pushViewController:controller animated:YES];
     } else if (indexPath.row == 2) {
         CTAssetsViewController *picker = [[CTAssetsViewController alloc] init];
-        [self.navigationController pushViewController:picker animated:YES];
+//        [self.navigationController pushViewController:picker animated:YES];
 //        picker.delegate = self;
-//        UINavigationController* nav = [[UINavigationController alloc] initWithRootViewController:picker];
-//        [self presentViewController:nav animated:YES completion:nil];
+        UINavigationController* nav = [[UINavigationController alloc] initWithRootViewController:picker];
+        [self presentViewController:nav animated:YES completion:nil];
     }
 }
 
