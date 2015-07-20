@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VariablesViewState
+   version = "1.0">
+   <ContextStates>
+      <ContextState
+         contextName = "-[CTAssetsViewController assetGroupPopover:didSelectAsset:]:CTAssetsViewController.m">
+      </ContextState>
+      <ContextState
+         contextName = "-[CSAssetGroupPopoverTableViewController viewDidAppear:]:CSAssetGroupPopoverTableViewController.m">
+         <PersistentStrings>
+            <PersistentString
+               value = "self.tableView">
+            </PersistentString>
+            <PersistentString
+               value = "self.view">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+      <ContextState
+         contextName = "-[CTAssetsViewController setupAssets]:CTAssetsViewController.m">
+         <PersistentStrings>
+            <PersistentString
+               value = "self.title">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+      <ContextState
+         contextName = "__36-[CTAssetsViewController setupGroup]_block_invoke:CTAssetsViewController.m">
+      </ContextState>
+   </ContextStates>
+</VariablesViewState>
