@@ -90,6 +90,10 @@ static UIColor *disabledColor;
     }
 }
 
+- (void)bindImage:(UIImage *)image {
+    self.image = image;
+}
+
 - (void)setSelected:(BOOL)selected
 {
     [super setSelected:selected];

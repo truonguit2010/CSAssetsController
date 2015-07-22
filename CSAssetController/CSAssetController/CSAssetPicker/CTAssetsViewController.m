@@ -37,19 +37,24 @@
 NSString * const CTAssetsViewCellIdentifier = @"CTAssetsViewCellIdentifier";
 NSString * const CTAssetsSupplementaryViewIdentifier = @"CTAssetsSupplementaryViewIdentifier";
 
-@interface CTAssetsViewController () <CSAssetGroupPopoverViewControllerDelegate>
+@interface CTAssetsViewController () <CSAssetGroupPopoverViewControllerDelegate, UIImagePickerControllerDelegate>
 @property (nonatomic, strong) NSMutableArray *assets;
+@property (nonatomic, strong) NSMutableArray *loadingAssets;
 @property (nonatomic, strong) NSMutableArray *assetGroups;
 @property (nonatomic, strong) NSMutableArray *selectedAssets;
 @property (nonatomic, strong) UIButton* btnTitle;
+
+@property (nonatomic, assign) BOOL isSystemSupportCamera;
 
 @end
 
 @implementation CTAssetsViewController
 
-- (id)init
-{
+- (id)init {
     self.assetGroups = [[NSMutableArray alloc] init];
+    self.loadingAssets = [[NSMutableArray alloc] init];
+    self.isSystemSupportCamera = YES;
+    
     UIInterfaceOrientation interfaceOrientation = [[UIApplication sharedApplication] statusBarOrientation];
     UICollectionViewFlowLayout *layout = [self collectionViewFlowLayoutOfOrientation:interfaceOrientation];
     
@@ -60,9 +65,9 @@ NSString * const CTAssetsSupplementaryViewIdentifier = @"CTAssetsSupplementaryVi
         [self.collectionView registerClass:CTAssetsViewCell.class
                 forCellWithReuseIdentifier:CTAssetsViewCellIdentifier];
         
-        [self.collectionView registerClass:CTAssetsSupplementaryView.class
-                forSupplementaryViewOfKind:UICollectionElementKindSectionFooter
-                       withReuseIdentifier:CTAssetsSupplementaryViewIdentifier];
+//        [self.collectionView registerClass:CTAssetsSupplementaryView.class
+//                forSupplementaryViewOfKind:UICollectionElementKindSectionFooter
+//                       withReuseIdentifier:CTAssetsSupplementaryViewIdentifier];
         
         self.preferredContentSize = CTAssetPickerPopoverContentSize;
     }
@@ -163,6 +168,7 @@ NSString * const CTAssetsSupplementaryViewIdentifier = @"CTAssetsSupplementaryVi
     ALAssetsFilter *assetsFilter = [ALAssetsFilter allPhotos];
     ALAssetsLibraryGroupsEnumerationResultsBlock resultsBlock = ^(ALAssetsGroup *group, BOOL *stop) {
         if (group) {
+            NSLog(@"Loaded group %@", [group valueForProperty:ALAssetsGroupPropertyName]);
             [group setAssetsFilter:assetsFilter];
             int numberOfAsset = [group numberOfAssets];
             if (numberOfAsset > 0) {
@@ -186,10 +192,10 @@ NSString * const CTAssetsSupplementaryViewIdentifier = @"CTAssetsSupplementaryVi
                                              usingBlock:resultsBlock
                                            failureBlock:failureBlock];
     // Then all other groups
-    NSUInteger type = ALAssetsGroupLibrary | ALAssetsGroupAlbum | ALAssetsGroupEvent | ALAssetsGroupFaces | ALAssetsGroupPhotoStream;
-    [[CTAssetsViewController defaultAssetsLibrary] enumerateGroupsWithTypes:type
-                                             usingBlock:resultsBlock
-                                           failureBlock:failureBlock];
+//    NSUInteger type = ALAssetsGroupLibrary | ALAssetsGroupAlbum | ALAssetsGroupEvent | ALAssetsGroupFaces | ALAssetsGroupPhotoStream;
+//    [[CTAssetsViewController defaultAssetsLibrary] enumerateGroupsWithTypes:type
+//                                             usingBlock:resultsBlock
+//                                           failureBlock:failureBlock];
 }
 
 + (ALAssetsLibrary *)defaultAssetsLibrary
@@ -248,20 +254,43 @@ NSString * const CTAssetsSupplementaryViewIdentifier = @"CTAssetsSupplementaryVi
 }
 
 - (void)setupAssets {
+    NSLog(@"setupAssets");
     self.title = [self.assetsGroup valueForProperty:ALAssetsGroupPropertyName];
     if (!self.assets)
         self.assets = [[NSMutableArray alloc] init];
     else
         [self.assets removeAllObjects];
     ALAssetsGroupEnumerationResultsBlock resultsBlock = ^(ALAsset *asset, NSUInteger index, BOOL *stop) {
+        NSLog(@"Getting asset");
         if (asset) {
             [self.assets addObject:asset];
+            [self performSelectorOnMainThread:@selector(reloadData) withObject:nil waitUntilDone:NO];
         }
         else {
-            [self reloadData];
+            NSLog(@"Getted asset");
+//            [self reloadData];
         }
     };
     [self.assetsGroup enumerateAssetsUsingBlock:resultsBlock];
+//    NSIndexSet* set = [NSIndexSet indexSetWithIndexesInRange:NSMakeRange(0, 5)];
+//    [self.assetsGroup enumerateAssetsAtIndexes:set options:NSEnumerationConcurrent usingBlock:^(ALAsset *asset, NSUInteger index, BOOL *stop) {
+//        NSLog(@"Getting asset");
+//                if (asset) {
+//        //            [self.loadingAssets addObject:asset];
+//        //            if () {
+//        //
+//        //            }
+//                    [self.assets addObject:asset];
+////                    [self performSelectorOnMainThread:@selector(reloadData) withObject:nil waitUntilDone:NO];
+////                    [self.collectionView reloadData];
+//                }
+//                else {
+//                    NSLog(@"Getted asset");
+//                    [self reloadData];
+//                }
+//        
+//    }];
+    
 }
 
 
@@ -270,10 +299,8 @@ NSString * const CTAssetsSupplementaryViewIdentifier = @"CTAssetsSupplementaryVi
 - (UICollectionViewFlowLayout *)collectionViewFlowLayoutOfOrientation:(UIInterfaceOrientation)orientation
 {
     UICollectionViewFlowLayout *layout = [[UICollectionViewFlowLayout alloc] init];
-    
     layout.itemSize             = CTAssetThumbnailSize;
-    layout.footerReferenceSize  = CGSizeMake(0, 47.0);
-    
+//
     if (UIInterfaceOrientationIsLandscape(orientation) && (UI_USER_INTERFACE_IDIOM() != UIUserInterfaceIdiomPad))
     {
         layout.sectionInset            = UIEdgeInsetsMake(9.0, 2.0, 0, 2.0);
@@ -286,7 +313,9 @@ NSString * const CTAssetsSupplementaryViewIdentifier = @"CTAssetsSupplementaryVi
         layout.minimumInteritemSpacing = (CTIPhone6Plus) ? 0.5 : ( (CTIPhone6) ? 1.0 : 2.0 );
         layout.minimumLineSpacing      = (CTIPhone6Plus) ? 0.5 : ( (CTIPhone6) ? 1.0 : 2.0 );
     }
-    
+    layout.footerReferenceSize  = CGSizeMake(0, layout.minimumLineSpacing);
+//    float w = self.view.frame.size.width / 3;
+//    layout.itemSize = CGSizeMake(w, w);
     return layout;
 }
 
@@ -394,6 +423,7 @@ NSString * const CTAssetsSupplementaryViewIdentifier = @"CTAssetsSupplementaryVi
 
 - (void)reloadData
 {
+    NSLog(@"Reload data");
     if (self.assets.count > 0)
     {
         [self.collectionView reloadData];
@@ -437,39 +467,75 @@ NSString * const CTAssetsSupplementaryViewIdentifier = @"CTAssetsSupplementaryVi
 }
 
 - (UICollectionViewCell *)collectionView:(UICollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)indexPath {
+    NSLog(@"Cell for item");
     CTAssetsViewCell *cell =
     [collectionView dequeueReusableCellWithReuseIdentifier:CTAssetsViewCellIdentifier
                                               forIndexPath:indexPath];
-    ALAsset *asset = [self.assets objectAtIndex:indexPath.row];
-    [cell bind:asset];
+    if (indexPath.item == 0 && self.isSystemSupportCamera) {
+        [cell bindImage:[[UIImage imageNamed:@"ic_photo_camera"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate]];
+        cell.backgroundColor = [UIColor grayColor];
+        cell.tintColor = [UIColor blueColor];
+    } else {
+        ALAsset *asset = [self.assets objectAtIndex:indexPath.row];
+        [cell bind:asset];
+    }
     return cell;
 }
 
-- (UICollectionReusableView *)collectionView:(UICollectionView *)collectionView viewForSupplementaryElementOfKind:(NSString *)kind atIndexPath:(NSIndexPath *)indexPath
-{
-    CTAssetsSupplementaryView *view =
-    [collectionView dequeueReusableSupplementaryViewOfKind:UICollectionElementKindSectionFooter
-                                       withReuseIdentifier:CTAssetsSupplementaryViewIdentifier
-                                              forIndexPath:indexPath];
-    
-    [view bind:self.assets];
-    
-    if (self.assets.count == 0)
-        view.hidden = YES;
-    
-    return view;
+- (void) showCamera {
+    if ([UIImagePickerController isSourceTypeAvailable:UIImagePickerControllerSourceTypeCamera])
+    {
+        UIImagePickerController *imagePicker = [[UIImagePickerController alloc]init];
+        imagePicker.delegate = self;
+        imagePicker.sourceType = UIImagePickerControllerSourceTypeCamera;
+//        imagePicker.allowsEditing = YES;
+        
+        [self presentViewController:imagePicker animated:YES completion:nil];
+    }else{
+        UIAlertView *alert = [[UIAlertView alloc]initWithTitle:@"Camera Unavailable"
+                                                       message:@"Unable to find a camera on your device."
+                                                      delegate:nil
+                                             cancelButtonTitle:@"OK"
+                                             otherButtonTitles:nil, nil];
+        [alert show];
+        alert = nil;
+    }
 }
+
+//- (UICollectionReusableView *)collectionView:(UICollectionView *)collectionView viewForSupplementaryElementOfKind:(NSString *)kind atIndexPath:(NSIndexPath *)indexPath
+//{
+//    CTAssetsSupplementaryView *view =
+//    [collectionView dequeueReusableSupplementaryViewOfKind:UICollectionElementKindSectionFooter
+//                                       withReuseIdentifier:CTAssetsSupplementaryViewIdentifier
+//                                              forIndexPath:indexPath];
+//    
+//    [view bind:self.assets];
+//    
+//    if (self.assets.count == 0)
+//        view.hidden = YES;
+//    
+//    return view;
+//}
 
 
 #pragma mark - Collection View Delegate
 
 - (void)collectionView:(UICollectionView *)collectionView didDeselectItemAtIndexPath:(NSIndexPath *)indexPath {
-    ALAsset *asset = [self.assets objectAtIndex:indexPath.row];
-    [self.selectedAssets removeObject:asset];
+    if (indexPath.item == 0 && self.isSystemSupportCamera) {
+        
+    } else {
+        ALAsset *asset = [self.assets objectAtIndex:indexPath.row];
+        [self.selectedAssets removeObject:asset];
+    }
 }
 - (void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath {
-    ALAsset *asset = [self.assets objectAtIndex:indexPath.row];
-    [self.selectedAssets addObject:asset];
+    if (indexPath.item == 0 && self.isSystemSupportCamera) {
+        NSLog(@"Open camera!");
+        [self showCamera];
+    } else {
+        ALAsset *asset = [self.assets objectAtIndex:indexPath.row];
+        [self.selectedAssets addObject:asset];
+    }
 }
 
 - (void)dealloc {
@@ -488,6 +554,43 @@ NSString * const CTAssetsSupplementaryViewIdentifier = @"CTAssetsSupplementaryVi
 - (void)removeNotificationObserver {
     NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
     [center removeObserver:self name:ALAssetsLibraryChangedNotification object:nil];
+}
+
+- (void)imagePickerController:(UIImagePickerController *)picker didFinishPickingMediaWithInfo:(NSDictionary *)info {
+    UIImage *originalImage, *imageToSave;
+    originalImage = (UIImage *) [info objectForKey:UIImagePickerControllerOriginalImage];
+    imageToSave = originalImage;
+    // Save the new image (original or edited) to the Camera Roll
+    UIImageWriteToSavedPhotosAlbum (imageToSave, nil, nil , nil);
+//    NSString *mediaType = [info objectForKey: UIImagePickerControllerMediaType];
+//
+//    
+//    // Handle a still image capture
+//    if (CFStringCompare ((CFStringRef) mediaType, kUTTypeImage, 0)
+//        == kCFCompareEqualTo) {
+//
+//        
+//        imageToSave = originalImage;
+//        NSLog(@"image Saved");
+//        
+//
+//    }
+//    
+//    // Handle a movie capture
+//    if (CFStringCompare ((CFStringRef) mediaType, kUTTypeMovie, 0)
+//        == kCFCompareEqualTo) {
+//        
+//        NSString *moviePath = [[info objectForKey:
+//                                UIImagePickerControllerMediaURL] path];
+//        
+//        if (UIVideoAtPathIsCompatibleWithSavedPhotosAlbum (moviePath)) {
+//            UISaveVideoAtPathToSavedPhotosAlbum (
+//                                                 moviePath, nil, nil, nil);
+//        }
+//    }
+//
+    [picker dismissViewControllerAnimated:YES completion:nil];
+//    [[picker parentViewController] dismissModalViewControllerAnimated: YES];
 }
 
 

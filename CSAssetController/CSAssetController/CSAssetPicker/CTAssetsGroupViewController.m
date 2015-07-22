@@ -241,6 +241,7 @@
 
 - (void)assetsLibraryChanged:(NSNotification *)notification
 {
+    NSLog(@"assetsLibraryChanged");
     // Reload all groups
     if (notification.userInfo == nil)
         [self performSelectorOnMainThread:@selector(setupGroup) withObject:nil waitUntilDone:NO];

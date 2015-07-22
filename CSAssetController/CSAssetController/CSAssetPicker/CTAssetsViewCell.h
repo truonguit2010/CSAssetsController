@@ -35,5 +35,6 @@
 @property (nonatomic, assign, getter = isEnabled) BOOL enabled;
 
 - (void)bind:(ALAsset *)asset;
+- (void)bindImage:(UIImage *)image;
 
 @end

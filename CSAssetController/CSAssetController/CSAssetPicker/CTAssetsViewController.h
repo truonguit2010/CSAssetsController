@@ -27,6 +27,7 @@
 
 #import <UIKit/UIKit.h>
 #import <AssetsLibrary/AssetsLibrary.h>
+#import <Foundation/Foundation.h>
 
 @protocol CSAssetsViewControllerDelegate;
 
